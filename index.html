@@ -326,6 +326,7 @@ async function extractRowsFromFile(file, log){
   const rows = [];
   let station = null, number = null, machine = null;
   let curDate = null, curMeas = null;
+  let lastHdrKey = null;
 
   for (let p = 1; p <= pdf.numPages; p++){
     const page = await pdf.getPage(p);
@@ -344,7 +345,14 @@ async function extractRowsFromFile(file, log){
         number  = parseInt(hm[2], 10);
         const mc = hm[3][0].toUpperCase() + hm[3].slice(1).toLowerCase();
         machine = mc.toLowerCase() === 'ecc' ? 'ECC' : mc;
-        curDate = null; curMeas = null;
+
+        // รีเซ็ตเฉพาะตอนที่หัวเครื่องเปลี่ยนจริง
+        // (บางรายงานพิมพ์หัวเครื่องซ้ำที่หัวหน้าใหม่ ถ้ารีเซ็ตทุกครั้งข้อมูลจะหาย)
+        const hdrKey = `${station}|${number}|${machine}`;
+        if (hdrKey !== lastHdrKey){
+          curDate = null; curMeas = null;
+          lastHdrKey = hdrKey;
+        }
         continue;
       }
 
@@ -406,8 +414,9 @@ function dedupSortZone(rows){
   const map = new Map();
   for (const r of rows){
     const key = [r.Date, r.Station, r.Number, r.Machine, r.Point].join('|');
-    const existing = map.get(key);
-    if (!existing || r.Value > existing.Value) map.set(key, r);
+    // เก็บบรรทัดท้ายสุดที่เจอในไฟล์ = ผลการวัดล่าสุดของจุดนั้น
+    // (rows เรียงตามลำดับหน้า/บรรทัดจาก groupIntoLines อยู่แล้ว)
+    map.set(key, r);
   }
   const out = Array.from(map.values()).map(r => ({
     ...r,
@@ -452,7 +461,7 @@ processBtn.addEventListener('click', async () => {
   }
 
   const final = dedupSortZone(allRows);
-  log(`รวมพบข้อมูล ${allRows.length} แถว → หลัง dedup เหลือ ${final.length} แถว`);
+  log(`รวมพบข้อมูล ${allRows.length} แถว → หลัง dedup (เก็บค่าที่วัดล่าสุด) เหลือ ${final.length} แถว`);
   log('เสร็จสิ้น พร้อมดาวน์โหลด');
 
   lastResult = final;
