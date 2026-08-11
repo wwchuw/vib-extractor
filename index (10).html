@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VIB Data Extractor</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --ink:#0f2436;
+    --ink-soft:#4a6178;
+    --paper:#f4f7f8;
+    --card:#ffffff;
+    --line:#dde5e8;
+    --teal:#0e7c76;
+    --teal-deep:#0a5a56;
+    --amber:#c8722a;
+    --danger:#b3423a;
+    --mono: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Helvetica, Arial, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:var(--sans);
+    background:var(--paper);
+    color:var(--ink);
+    min-height:100vh;
+    padding:32px 20px 80px;
+  }
+  .wrap{max-width:880px;margin:0 auto;}
+
+  header{margin-bottom:28px;}
+  .eyebrow{
+    font-family:var(--mono);
+    font-size:11px;
+    letter-spacing:.12em;
+    text-transform:uppercase;
+    color:var(--teal);
+    margin-bottom:8px;
+    display:flex;align-items:center;gap:8px;
+  }
+  .eyebrow svg{width:16px;height:16px;flex-shrink:0;}
+  h1{
+    font-size:26px;
+    margin:0 0 6px;
+    letter-spacing:-0.01em;
+    font-weight:650;
+  }
+  .sub{color:var(--ink-soft);font-size:14.5px;line-height:1.55;max-width:60ch;}
+
+  .card{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:24px;
+    margin-bottom:20px;
+    box-shadow:0 1px 2px rgba(15,36,54,.03);
+  }
+
+  .drop{
+    border:1.5px dashed #b9c8cf;
+    border-radius:12px;
+    padding:36px 20px;
+    text-align:center;
+    cursor:pointer;
+    transition:border-color .15s, background .15s;
+    position:relative;
+  }
+  .drop:hover, .drop.drag{
+    border-color:var(--teal);
+    background:#f0f8f7;
+  }
+  .drop svg{width:34px;height:34px;color:var(--teal);margin-bottom:10px;}
+  .drop .ttl{font-weight:600;font-size:15px;margin-bottom:4px;}
+  .drop .hint{color:var(--ink-soft);font-size:13px;}
+  .drop input{position:absolute;inset:0;opacity:0;cursor:pointer;}
+
+  .filelist{margin-top:14px;display:flex;flex-direction:column;gap:6px;}
+  .filerow{
+    display:flex;align-items:center;justify-content:space-between;
+    background:var(--paper);
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:8px 12px;
+    font-size:13px;
+  }
+  .filerow .name{font-family:var(--mono);color:var(--ink);}
+  .filerow .rm{color:var(--danger);cursor:pointer;font-size:12px;background:none;border:none;font-family:var(--sans);}
+
+  .actions{display:flex;gap:10px;margin-top:16px;align-items:center;flex-wrap:wrap;}
+  button.primary{
+    background:var(--teal);
+    color:#fff;
+    border:none;
+    padding:10px 18px;
+    border-radius:8px;
+    font-size:14px;
+    font-weight:600;
+    cursor:pointer;
+    transition:background .15s;
+  }
+  button.primary:hover:not(:disabled){background:var(--teal-deep);}
+  button.primary:disabled{background:#a9bcc2;cursor:not-allowed;}
+  button.ghost{
+    background:none;border:1px solid var(--line);color:var(--ink-soft);
+    padding:9px 16px;border-radius:8px;font-size:13.5px;cursor:pointer;
+  }
+  button.ghost:hover{border-color:var(--ink-soft);color:var(--ink);}
+
+  .status{
+    font-family:var(--mono);
+    font-size:12.5px;
+    color:var(--ink-soft);
+    margin-top:12px;
+    line-height:1.7;
+    white-space:pre-wrap;
+  }
+  .status .err{color:var(--danger);}
+  .status .ok{color:var(--teal-deep);}
+
+  .summary{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:12px;
+    margin-bottom:18px;
+  }
+  .stat{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:16px;
+  }
+  .stat .num{font-size:24px;font-weight:700;font-family:var(--mono);color:var(--ink);}
+  .stat .lbl{font-size:12px;color:var(--ink-soft);margin-top:2px;}
+
+  .tablewrap{overflow:auto;border:1px solid var(--line);border-radius:10px;max-height:420px;}
+  table{border-collapse:collapse;width:100%;font-size:13px;font-family:var(--mono);}
+  thead th{
+    position:sticky;top:0;
+    background:#eef3f4;
+    text-align:left;
+    padding:9px 12px;
+    font-weight:600;
+    border-bottom:1px solid var(--line);
+    color:var(--ink);
+  }
+  tbody td{padding:7px 12px;border-bottom:1px solid #eef2f3;color:var(--ink-soft);}
+  tbody tr:hover{background:#f7fafa;}
+  .zone{
+    display:inline-block;
+    width:20px;height:20px;line-height:20px;
+    text-align:center;border-radius:5px;
+    font-weight:700;font-size:11.5px;
+  }
+  .zone-A{background:#e2f3ee;color:#0e7c56;}
+  .zone-B{background:#fdf3d9;color:#a67608;}
+  .zone-C{background:#fde3d0;color:#b45b19;}
+  .zone-D{background:#fadbd8;color:var(--danger);}
+
+  .empty{
+    text-align:center;padding:40px 20px;color:var(--ink-soft);font-size:14px;
+  }
+
+  footer{
+    text-align:center;color:#9fb0ba;font-size:12px;margin-top:28px;
+  }
+
+  @media (max-width:560px){
+    .summary{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="eyebrow">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12h4l2-7 4 14 2-9 2 5h6"/></svg>
+      PDF → Excel
+    </div>
+    <h1>Vibration Data Extractor</h1>
+    <div class="sub">ลากไฟล์รายงาน vibration (PDF) วางด้านล่าง ระบบจะดึงค่า Vibration สรุปผล Zone ตามมาตรฐาน ISO 10816-7(Pump) และ ISO 10816-3 (Motor) พร้อมสรุปแยก Catagory1, 2 (Pump) แล้วให้ดาวน์โหลดเป็น Excel </div>
+  </header>
+
+  <div class="card">
+    <div class="drop" id="dropzone">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
+      <div class="ttl">วางไฟล์ PDF ที่นี่ หรือคลิกเพื่อเลือกไฟล์</div>
+      <div class="hint"> </div>
+      <input type="file" id="fileInput" accept="application/pdf" multiple>
+    </div>
+    <div class="filelist" id="filelist"></div>
+    <div class="actions">
+      <button class="primary" id="processBtn" disabled>ประมวลผลไฟล์</button>
+      <button class="ghost" id="clearBtn">ล้างทั้งหมด</button>
+    </div>
+    <div class="status" id="status"></div>
+  </div>
+
+  <div id="resultsArea"></div>
+
+  <footer> หน่วยงาน สสน.1 กคน.ฝบย. </footer>
+</div>
+
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+// ── state ──────────────────────────────────────────────
+let queuedFiles = [];
+let lastResult = null; // {rows, sourceFiles}
+
+// ── DOM refs ───────────────────────────────────────────
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('fileInput');
+const filelistEl = document.getElementById('filelist');
+const processBtn = document.getElementById('processBtn');
+const clearBtn = document.getElementById('clearBtn');
+const statusEl = document.getElementById('status');
+const resultsArea = document.getElementById('resultsArea');
+
+// ── file selection UI ──────────────────────────────────
+function renderFileList(){
+  filelistEl.innerHTML = '';
+  queuedFiles.forEach((f, i) => {
+    const row = document.createElement('div');
+    row.className = 'filerow';
+    row.innerHTML = `<span class="name">${escapeHtml(f.name)}</span>`;
+    const rm = document.createElement('button');
+    rm.className = 'rm'; rm.textContent = 'ลบ';
+    rm.onclick = () => { queuedFiles.splice(i,1); renderFileList(); };
+    row.appendChild(rm);
+    filelistEl.appendChild(row);
+  });
+  processBtn.disabled = queuedFiles.length === 0;
+}
+
+function addFiles(fileArr){
+  for (const f of fileArr){
+    if (f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf')){
+      queuedFiles.push(f);
+    }
+  }
+  renderFileList();
+}
+
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag'));
+dropzone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropzone.classList.remove('drag');
+  addFiles(Array.from(e.dataTransfer.files));
+});
+fileInput.addEventListener('change', e => { addFiles(Array.from(e.target.files)); fileInput.value=''; });
+
+clearBtn.addEventListener('click', () => {
+  queuedFiles = [];
+  lastResult = null;
+  renderFileList();
+  statusEl.textContent = '';
+  resultsArea.innerHTML = '';
+});
+
+// ── extraction logic (mirrors the notebook) ────────────
+const HDR_RE  = /(RPS[12]|TPS[123]|DPS[12]|WWS[12])\s*\/\s*No[.\s]*(\d+)\s*\/\s*(Pump|Motor|ECC)/i;
+const DATE_RE = /^(\d{1,2})\/(\d{1,2})\/(\d{2,4})\s*$/;
+const DATA_RE = /(\d+\.\d+)\s+mm\/s.*?([NWAP])\s*\d*\s*$/;
+const SKIP_RE = /Last measurement|Alarm Code|^Class\s|Level \+1|PRÜFTECHNIK|Apr \d/;
+
+const MEAS_CANON = {};
+['DE-H','DE-V','DE-A','NDE-H','NDE-V','NDE-A'].forEach(k=>{
+  MEAS_CANON[k] = k;
+  MEAS_CANON[k.replace('-','')] = k;
+});
+
+function parseDate(s){
+  const m = DATE_RE.exec(s.trim());
+  if (!m) return null;
+  let [, mo, dy, yr] = m;
+  if (yr.length === 2) yr = '20' + yr;
+  const moN = parseInt(mo,10), dyN = parseInt(dy,10), yrN = parseInt(yr,10);
+  const d = new Date(yrN, moN-1, dyN);
+  if (d.getFullYear()!==yrN || d.getMonth()!==moN-1 || d.getDate()!==dyN) return null;
+  const pad = n => String(n).padStart(2,'0');
+  return `${yrN}-${pad(moN)}-${pad(dyN)}`;
+}
+
+function normMeas(s){
+  const t = s.trim().toUpperCase();
+  if (MEAS_CANON[t]) return MEAS_CANON[t];
+  const t2 = t.replace(/-/g,'').replace(/\s/g,'');
+  return MEAS_CANON[t2] || null;
+}
+
+// group pdf.js text items into reading-order lines (like pdfplumber layout=True)
+function groupIntoLines(items){
+  const arr = items.map(it => ({str: it.str, x: it.transform[4], y: it.transform[5], w: it.width || 0}));
+  arr.sort((a,b) => (b.y - a.y) || (a.x - b.x));
+  const TOL = 2.5;
+  const buckets = [];
+  let cur = null;
+  for (const it of arr){
+    if (!cur || Math.abs(it.y - cur.y) > TOL){
+      cur = { y: it.y, items: [] };
+      buckets.push(cur);
+    }
+    cur.items.push(it);
+  }
+  return buckets.map(b => {
+    b.items.sort((a,c) => a.x - c.x);
+    let text = '';
+    let lastEnd = null;
+    for (const it of b.items){
+      if (lastEnd !== null && (it.x - lastEnd) > 1.2) text += ' ';
+      text += it.str;
+      lastEnd = it.x + it.w;
+    }
+    return text;
+  });
+}
+
+async function extractRowsFromFile(file, log){
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+  const rows = [];
+  let station = null, number = null, machine = null;
+  let curDate = null, curMeas = null;
+  let lastHdrKey = null;
+
+  for (let p = 1; p <= pdf.numPages; p++){
+    const page = await pdf.getPage(p);
+    const content = await page.getTextContent();
+    if (!content.items.length) continue;
+    const lines = groupIntoLines(content.items);
+
+    for (const raw of lines){
+      const line = raw.replace(/^[->\s]+/, '').trim();
+      if (!line) continue;
+      if (SKIP_RE.test(line)) continue;
+
+      const hm = HDR_RE.exec(line);
+      if (hm){
+        station = hm[1].toUpperCase();
+        number  = parseInt(hm[2], 10);
+        const mc = hm[3][0].toUpperCase() + hm[3].slice(1).toLowerCase();
+        machine = mc.toLowerCase() === 'ecc' ? 'ECC' : mc;
+
+        // รีเซ็ตเฉพาะตอนที่หัวเครื่องเปลี่ยนจริง
+        // (บางรายงานพิมพ์หัวเครื่องซ้ำที่หัวหน้าใหม่ ถ้ารีเซ็ตทุกครั้งข้อมูลจะหาย)
+        const hdrKey = `${station}|${number}|${machine}`;
+        if (hdrKey !== lastHdrKey){
+          curDate = null; curMeas = null;
+          lastHdrKey = hdrKey;
+        }
+        continue;
+      }
+
+      const tokens = line.split(/\s+/);
+      const first = tokens.length ? tokens[0] : '';
+
+      const d = parseDate(first);
+      if (d){
+        curDate = d;
+        curMeas = null;
+        continue;
+      }
+
+      const nm = normMeas(first);
+      if (nm) curMeas = nm;
+
+      if (station && curDate && curMeas){
+        const dm = DATA_RE.exec(line);
+        if (dm){
+          rows.push({
+            Date: curDate,
+            Station: station,
+            Number: `No.${number}`,
+            Machine: machine,
+            Point: curMeas,
+            Value: parseFloat(dm[1]),
+            Code: dm[2].toUpperCase(),
+          });
+        }
+      }
+    }
+  }
+  log(`  → ${file.name}: พบ ${rows.length} แถว (${pdf.numPages} หน้า)`);
+  return rows;
+}
+
+function zone1(v, mc){
+  if (v == null) return '';
+  if (mc === 'Pump'){
+    if (v <= 3.5) return 'A'; if (v <= 5.0) return 'B'; if (v <= 7.6) return 'C'; return 'D';
+  } else if (mc === 'Motor'){
+    if (v <= 2.3) return 'A'; if (v <= 4.5) return 'B'; if (v <= 7.1) return 'C'; return 'D';
+  }
+  return '';
+}
+function zone2(v, mc){
+  if (v == null) return '';
+  if (mc === 'Pump'){
+    if (v <= 4.2) return 'A'; if (v <= 6.1) return 'B'; if (v <= 9.5) return 'C'; return 'D';
+  } else if (mc === 'Motor'){
+    if (v <= 2.3) return 'A'; if (v <= 4.5) return 'B'; if (v <= 7.1) return 'C'; return 'D';
+  }
+  return '';
+}
+
+function cmpStr(a,b){ return a < b ? -1 : a > b ? 1 : 0; }
+
+function dedupSortZone(rows){
+  const map = new Map();
+  for (const r of rows){
+    const key = [r.Date, r.Station, r.Number, r.Machine, r.Point].join('|');
+    // เก็บบรรทัดท้ายสุดที่เจอในไฟล์ = ผลการวัดล่าสุดของจุดนั้น
+    // (rows เรียงตามลำดับหน้า/บรรทัดจาก groupIntoLines อยู่แล้ว)
+    map.set(key, r);
+  }
+  const out = Array.from(map.values()).map(r => ({
+    ...r,
+    Zone_cat1: zone1(r.Value, r.Machine),
+    Zone_cat2: zone2(r.Value, r.Machine),
+  }));
+  out.sort((a,b) =>
+    cmpStr(a.Station,b.Station) ||
+    cmpStr(a.Number,b.Number) ||
+    cmpStr(a.Machine,b.Machine) ||
+    cmpStr(a.Date,b.Date) ||
+    cmpStr(a.Point,b.Point)
+  );
+  return out;
+}
+
+// ── run pipeline ────────────────────────────────────────
+processBtn.addEventListener('click', async () => {
+  if (!queuedFiles.length) return;
+  processBtn.disabled = true;
+  resultsArea.innerHTML = '';
+  const lines = [];
+  const log = (s) => { lines.push(s); statusEl.textContent = lines.join('\n'); };
+
+  log(`กำลังประมวลผล ${queuedFiles.length} ไฟล์...`);
+  let allRows = [];
+  try {
+    for (const f of queuedFiles){
+      const rows = await extractRowsFromFile(f, log);
+      allRows = allRows.concat(rows);
+    }
+  } catch (err){
+    log(`เกิดข้อผิดพลาด: ${err.message}`);
+    processBtn.disabled = false;
+    return;
+  }
+
+  if (allRows.length === 0){
+    log('ไม่พบข้อมูลที่ตรงรูปแบบ — ตรวจสอบว่าไฟล์เป็นรายงาน vibration survey ที่ถูกต้อง หรือเป็น PDF ที่สแกนเป็นภาพ (อ่านข้อความไม่ได้)');
+    processBtn.disabled = false;
+    return;
+  }
+
+  const final = dedupSortZone(allRows);
+  log(`รวมพบข้อมูล ${allRows.length} แถว → หลัง dedup (เก็บค่าที่วัดล่าสุด) เหลือ ${final.length} แถว`);
+  log('เสร็จสิ้น พร้อมดาวน์โหลด');
+
+  lastResult = final;
+  renderResults(final);
+  processBtn.disabled = false;
+});
+
+// ── results UI ──────────────────────────────────────────
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function renderResults(rows){
+  const zoneCounts = {A:0,B:0,C:0,D:0};
+  rows.forEach(r => { if (zoneCounts[r.Zone_cat1] !== undefined) zoneCounts[r.Zone_cat1]++; });
+
+  const wrap = document.createElement('div');
+
+  const summary = document.createElement('div');
+  summary.className = 'summary';
+  summary.innerHTML = `
+    <div class="stat"><div class="num">${rows.length}</div><div class="lbl">แถวข้อมูล (หลัง dedup)</div></div>
+    <div class="stat"><div class="num">${zoneCounts.C + zoneCounts.D}</div><div class="lbl">จุดที่อยู่โซน C หรือ D</div></div>
+    <div class="stat"><div class="num">${new Set(rows.map(r=>r.Station+r.Number)).size}</div><div class="lbl">เครื่องจักรที่พบ (Station/No.)</div></div>
+  `;
+  wrap.appendChild(summary);
+
+  const card = document.createElement('div');
+  card.className = 'card';
+
+  const actions = document.createElement('div');
+  actions.className = 'actions';
+  actions.style.marginTop = '0';
+  actions.style.marginBottom = '16px';
+  const dlBtn = document.createElement('button');
+  dlBtn.className = 'primary';
+  dlBtn.textContent = '⬇ ดาวน์โหลด Excel';
+  dlBtn.onclick = () => downloadExcel(rows);
+  actions.appendChild(dlBtn);
+  card.appendChild(actions);
+
+  const tw = document.createElement('div');
+  tw.className = 'tablewrap';
+  const table = document.createElement('table');
+  table.innerHTML = `
+    <thead><tr>
+      <th>Date</th><th>Station</th><th>Number</th><th>Machine</th><th>Point</th>
+      <th>Value</th><th>Zone 1</th><th>Zone 2</th>
+    </tr></thead>
+  `;
+  const tbody = document.createElement('tbody');
+  rows.forEach(r => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${r.Date}</td><td>${r.Station}</td><td>${r.Number}</td><td>${r.Machine}</td><td>${r.Point}</td>
+      <td>${r.Value.toFixed(2)}</td>
+      <td><span class="zone zone-${r.Zone_cat1}">${r.Zone_cat1}</span></td>
+      <td><span class="zone zone-${r.Zone_cat2}">${r.Zone_cat2}</span></td>
+    `;
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+  tw.appendChild(table);
+  card.appendChild(tw);
+
+  wrap.appendChild(card);
+  resultsArea.appendChild(wrap);
+}
+
+function downloadExcel(rows){
+  const data = rows.map(r => ({
+    Date: r.Date, Station: r.Station, Number: r.Number, Machine: r.Machine,
+    Point: r.Point, Value: r.Value, Zone_cat1: r.Zone_cat1, Zone_cat2: r.Zone_cat2,
+  }));
+  const ws = XLSX.utils.json_to_sheet(data);
+  ws['!cols'] = [{wch:12},{wch:9},{wch:7},{wch:8},{wch:7},{wch:8},{wch:9},{wch:9}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'VIB');
+  const today = new Date();
+  const stamp = `${today.getFullYear()}${String(today.getMonth()+1).padStart(2,'0')}${String(today.getDate()).padStart(2,'0')}`;
+  XLSX.writeFile(wb, `VIB_output_${stamp}.xlsx`);
+}
+</script>
+</body>
+</html>
