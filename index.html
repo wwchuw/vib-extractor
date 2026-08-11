@@ -201,7 +201,7 @@
 
   <div id="resultsArea"></div>
 
-  <footer> หน่วยงาน สสน.1 กคน.ฝบย. </footer>
+  <footer> หน่วยงาน สสน.1 กคน.ฝบย. &nbsp;·&nbsp; build 2026-08-11b (dedup: ค่าล่าสุด) </footer>
 </div>
 
 <script>
@@ -441,6 +441,7 @@ processBtn.addEventListener('click', async () => {
   const lines = [];
   const log = (s) => { lines.push(s); statusEl.textContent = lines.join('\n'); };
 
+  log('build 2026-08-11b · dedup = เก็บค่าที่วัดล่าสุด');
   log(`กำลังประมวลผล ${queuedFiles.length} ไฟล์...`);
   let allRows = [];
   try {
