@@ -201,7 +201,7 @@
 
   <div id="resultsArea"></div>
 
-  <footer> หน่วยงาน สสน.1 กคน.ฝบย. &nbsp;·&nbsp; build 2026-08-11b (dedup: ค่าล่าสุด) </footer>
+  <footer> หน่วยงาน สสน.1 กคน.ฝบย. &nbsp;·&nbsp; build 2026-08-14 (Number = เลขล้วน, dedup: ค่าล่าสุด) </footer>
 </div>
 
 <script>
@@ -375,7 +375,7 @@ async function extractRowsFromFile(file, log){
           rows.push({
             Date: curDate,
             Station: station,
-            Number: `No.${number}`,
+            Number: number,
             Machine: machine,
             Point: curMeas,
             Value: parseFloat(dm[1]),
@@ -408,7 +408,7 @@ function zone2(v, mc){
   return '';
 }
 
-function cmpStr(a,b){ return a < b ? -1 : a > b ? 1 : 0; }
+function cmpVal(a,b){ return a < b ? -1 : a > b ? 1 : 0; }
 
 function dedupSortZone(rows){
   const map = new Map();
@@ -424,11 +424,11 @@ function dedupSortZone(rows){
     Zone_cat2: zone2(r.Value, r.Machine),
   }));
   out.sort((a,b) =>
-    cmpStr(a.Station,b.Station) ||
-    cmpStr(a.Number,b.Number) ||
-    cmpStr(a.Machine,b.Machine) ||
-    cmpStr(a.Date,b.Date) ||
-    cmpStr(a.Point,b.Point)
+    cmpVal(a.Station,b.Station) ||
+    cmpVal(a.Number,b.Number) ||
+    cmpVal(a.Machine,b.Machine) ||
+    cmpVal(a.Date,b.Date) ||
+    cmpVal(a.Point,b.Point)
   );
   return out;
 }
@@ -441,7 +441,7 @@ processBtn.addEventListener('click', async () => {
   const lines = [];
   const log = (s) => { lines.push(s); statusEl.textContent = lines.join('\n'); };
 
-  log('build 2026-08-11b · dedup = เก็บค่าที่วัดล่าสุด');
+  log('build 2026-08-14 · Number = เลขล้วน · dedup = เก็บค่าที่วัดล่าสุด');
   log(`กำลังประมวลผล ${queuedFiles.length} ไฟล์...`);
   let allRows = [];
   try {
